@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Monitor, Square, AlertCircle, Play, StopCircle } from 'lucide-react';
 import { PhantomAI } from './PhantomAI';
+import { translateText } from '../services/languageService';
 
 interface ScreenShareProps {
   onStreamUpdate?: (stream: MediaStream | null) => void;
@@ -211,16 +212,18 @@ export const ScreenShare: React.FC<ScreenShareProps> = ({
       {!isSharing && (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
           <Monitor className="w-16 h-16 mb-4 opacity-50" />
-          <h3 className="text-xl font-medium mb-2">Screen Share Area</h3>
+          <h3 className="text-xl font-medium mb-2">
+            {translateText('Screen Share Area', currentLanguage || 'en')}
+          </h3>
           <p className="text-sm mb-6 text-center max-w-md">
-            Share your screen to start receiving interactive tutorials and guidance
+            {translateText('Share your screen to start receiving interactive tutorials and guidance', currentLanguage || 'en')}
           </p>
           <button
             onClick={startScreenShare}
             className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
           >
             <Play className="w-4 h-4" />
-            Start Screen Sharing
+            {translateText('Start Screen Sharing', currentLanguage || 'en')}
           </button>
         </div>
       )}
@@ -237,11 +240,13 @@ export const ScreenShare: React.FC<ScreenShareProps> = ({
       {isSharing && (
         <div className="absolute top-4 left-4 flex items-center gap-2 bg-green-900/90 border border-green-500 rounded-lg px-3 py-2">
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-          <span className="text-green-200 text-sm font-medium">Screen Sharing Active</span>
+          <span className="text-green-200 text-sm font-medium">
+            {translateText('Screen Sharing Active', currentLanguage || 'en')}
+          </span>
           <button
             onClick={stopScreenShare}
             className="ml-2 p-1 hover:bg-green-800 rounded"
-            title="Stop sharing"
+            title={translateText('Stop sharing', currentLanguage || 'en')}
           >
             <StopCircle className="w-4 h-4 text-green-300" />
           </button>
@@ -254,7 +259,7 @@ export const ScreenShare: React.FC<ScreenShareProps> = ({
           <div className="flex items-center gap-2">
             <Square className="w-4 h-4 text-blue-400" />
             <span className="text-blue-200 text-sm">
-              Detected: <span className="font-medium">{detectedApp}</span>
+              {translateText('Detected', currentLanguage || 'en')}: <span className="font-medium">{detectedApp}</span>
             </span>
           </div>
         </div>
@@ -268,7 +273,9 @@ export const ScreenShare: React.FC<ScreenShareProps> = ({
               ?
             </div>
             <div>
-              <h4 className="text-purple-200 font-medium mb-1">Tutorial Step</h4>
+              <h4 className="text-purple-200 font-medium mb-1">
+                {translateText('Tutorial Step', currentLanguage || 'en')}
+              </h4>
               <p className="text-purple-100 text-sm">{currentStep}</p>
             </div>
           </div>

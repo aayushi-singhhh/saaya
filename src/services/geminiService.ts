@@ -13,18 +13,8 @@ interface GeminiResponse {
 
 function getLanguageInstructions(language: string): string {
   const languageMap: Record<string, string> = {
-    'hi': 'Please respond in Hindi (हिंदी). Use clear, simple Hindi words.',
-    'es': 'Please respond in Spanish (Español). Use clear, simple Spanish words.',
-    'fr': 'Please respond in French (Français). Use clear, simple French words.',
-    'de': 'Please respond in German (Deutsch). Use clear, simple German words.',
-    'ar': 'Please respond in Arabic (العربية). Use clear, simple Arabic words.',
-    'zh': 'Please respond in Chinese (中文). Use clear, simple Chinese characters.',
-    'ja': 'Please respond in Japanese (日本語). Use clear, simple Japanese words.',
-    'ko': 'Please respond in Korean (한국어). Use clear, simple Korean words.',
-    'pt': 'Please respond in Portuguese (Português). Use clear, simple Portuguese words.',
-    'ru': 'Please respond in Russian (Русский). Use clear, simple Russian words.',
-    'it': 'Please respond in Italian (Italiano). Use clear, simple Italian words.',
-    'en': 'Please respond in English. Use clear, simple English words.'
+    'hi': 'Please respond in Hindi (हिंदी). Use clear, simple Hindi words and provide step-by-step instructions in Hindi.',
+    'en': 'Please respond in English. Use clear, simple English words and provide step-by-step instructions.'
   };
   
   return languageMap[language] || languageMap['en'];
@@ -44,20 +34,23 @@ export async function generateStepGuidance(action: string, description: string, 
           parts: [{
             text: `${languageInstructions}
 
-Generate a clear, friendly voice instruction for the following step:
+You are a helpful voice assistant guiding users through computer tasks. Generate a clear, friendly voice instruction for the following step:
             
 Action: ${action}
 Description: ${description}
             
-Provide a single sentence that guides the user on what to do next. Make it conversational and encouraging.
-For example: "Now, click on the Compose button in the top left corner to start writing your email."
+Provide a single sentence that guides the user on what to do next. Make it conversational, encouraging, and easy to understand for elderly users.
+
+Examples:
+- English: "Now, look for the blue Compose button on the left side of your Gmail screen and click on it."
+- Hindi: "अब Gmail स्क्रीन के बाईं ओर नीले रंग का Compose बटन देखें और उस पर क्लिक करें।"
             
-Keep the instruction under 20 words and make it actionable.`
+Keep the instruction under 25 words and make it very actionable and specific.`
           }]
         }],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 100,
+          maxOutputTokens: 150,
         }
       })
     });
@@ -90,27 +83,37 @@ export async function processVoiceCommand(command: string, apiKey: string, langu
           parts: [{
             text: `${languageInstructions}
 
-Analyze this voice command and create a step-by-step tutorial: "${command}"
-            
+You are an intelligent voice assistant that helps users with computer tasks. Analyze this user command and create a comprehensive step-by-step tutorial: "${command}"
+
+Based on the command, generate realistic, actionable steps that would help someone complete this task. Consider:
+1. What application or website is needed
+2. Where UI elements are typically located 
+3. The logical sequence of actions
+4. Clear, specific instructions for elderly users
+
 Please respond with a JSON object containing tutorial steps in this exact format:
 {
   "steps": [
     {
       "id": "step-1",
       "command": "${command}",
-      "description": "Detailed description of what to do (in the requested language)",
+      "description": "Detailed description of what to do (in ${language === 'hi' ? 'Hindi' : 'English'})",
       "coordinates": {"x": 400, "y": 300},
-      "action": "Click on Gallery app (in the requested language)",
+      "action": "Clear action title (in ${language === 'hi' ? 'Hindi' : 'English'})",
       "completed": false
     }
   ]
 }
-            
-Create 3-5 logical steps that would help someone complete the requested task. 
-Generate realistic screen coordinates (assume 1920x1080 screen).
-Make the descriptions clear and actionable.
-Focus on common UI patterns and locations.
-            
+
+Important guidelines:
+- Create 3-6 logical steps based on the complexity of the task
+- Generate realistic screen coordinates (assume 1920x1080 screen)
+- Make descriptions very clear and specific for elderly users
+- Focus on common UI patterns (toolbars, menus, buttons are usually in predictable locations)
+- For Gmail: Compose button is at top-left (32, 140), To field around (120, 180), Subject around (120, 230)
+- For general tasks: Consider typical locations of common UI elements
+- Use ${language === 'hi' ? 'Hindi' : 'English'} language for all text content
+
 Only respond with valid JSON, no additional text.`
           }]
         }],
@@ -118,7 +121,7 @@ Only respond with valid JSON, no additional text.`
           temperature: 0.7,
           topK: 40,
           topP: 0.95,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 1500,
         }
       })
     });

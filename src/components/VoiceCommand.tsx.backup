@@ -1,12 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, MessageSquare, Loader, Volume2, AlertCircle, Lightbulb } from 'lucide-react';
+import { Mic, MicOff, MessageSquare, Loader } from 'lucide-react';
 import type { AppState } from '../App';
 import { processVoiceCommand, generateStepGuidance } from '../services/geminiService';
 import { translateText, getLanguageFromText, supportedLanguages } from '../services/languageService';
-import { createElderlyAssistant, formatEstimatedTime } from '../services/elderlyAssistant';
-import type { ScreenContext, GuidanceInstruction } from '../services/elderlyAssistant';
-
-interface VoiceCommandProps {
+              <button
+                key={code}
+                onClick={() => {
+                  updateAppState({ currentLanguage: code });
+                  // Update speech recognition language
+                  if (recognitionRef.current) {
+                    recognitionRef.current.lang = lang.speechCode;
+                  }
+                }}
+                className={`text-xs py-2 px-3 rounded transition-all duration-200 ${
+                  appState.currentLanguage === code
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                {lang.nativeName}
+              </button>
+            ))}e VoiceCommandProps {
   appState: AppState;
   updateAppState: (updates: Partial<AppState>) => void;
   apiKey: string;
@@ -23,8 +37,6 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
   const [transcript, setTranscript] = useState('');
   const [isSupported, setIsSupported] = useState(true);
   const [voiceGuidance, setVoiceGuidance] = useState<string>('');
-  const [showAutomationOffer, setShowAutomationOffer] = useState(false);
-  const [estimatedTime, setEstimatedTime] = useState<number>(0);
   const recognitionRef = useRef<any>(null);
   const speechSynthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
 
@@ -124,58 +136,48 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
     });
 
     try {
-      // Phase 1: Enhanced AI-Powered Guidance
-      const assistant = createElderlyAssistant(apiKey, detectedLanguage.code);
+      // Process the command and determine if we need to navigate to a specific website
+      const response = await processVoiceCommand(command, apiKey, detectedLanguage.code);
       
-      // Create screen context
-      const screenContext: ScreenContext = {
-        detectedApp: appState.detectedApplication,
-        currentUrl: appState.currentWebsite,
-        difficulty: 'easy', // Always start with easy for elderly users
-        userIntent: command
-      };
-
-      // Get enhanced guidance from AI assistant
-      const assistantResponse = await assistant.helpUser(command, undefined, screenContext);
-      
-      if (assistantResponse.instructions.length > 0) {
-        // Convert enhanced instructions to tutorial steps
-        const enhancedSteps = assistantResponse.instructions.map(instruction => ({
-          id: instruction.id,
-          command,
-          description: instruction.description,
-          coordinates: instruction.visualGuides.length > 0 
-            ? instruction.visualGuides[0].position 
-            : { x: 400, y: 300 },
-          action: instruction.title,
-          completed: false
-        }));
-
-        // Speak the first instruction with encouraging tone
-        const firstInstruction = assistantResponse.instructions[0];
-        speakText(firstInstruction.voiceInstruction, detectedLanguage.speechCode);
-
-        // Update state with enhanced guidance
-        updateAppState({
-          tutorialSteps: enhancedSteps,
-          currentStep: 0,
-          isProcessing: false
-        });
-
-        // Show automation options if available (Phase 2)
-        if (assistantResponse.automationOptions?.available) {
-          setShowAutomationOffer(true);
-          setEstimatedTime(assistantResponse.estimatedCompletionTime);
+      if (response) {
+        // Check if this is a web-based task (like Gmail)
+        const websiteTarget = detectWebsiteTarget(command);
+        
+        if (websiteTarget) {
+          // Provide guidance to navigate to the website first
+          const navigationMessage = translateText(`To ${command}, let's first navigate to ${websiteTarget.name}. Please open your browser and go to ${websiteTarget.url}`, detectedLanguage.code, {
+            TASK: command,
+            WEBSITE: websiteTarget.name,
+            URL: websiteTarget.url
+          });
+          speakText(navigationMessage, detectedLanguage.speechCode);
           
-          // Inform user about automation option
-          const automationMessage = translateText(
-            `I can also help automate some of these steps for you. Would you like me to show you both options?`,
-            detectedLanguage.code
-          );
-          
-          setTimeout(() => {
-            speakText(automationMessage, detectedLanguage.speechCode);
-          }, 3000); // Delay to not interrupt the first instruction
+          updateAppState({
+            currentWebsite: websiteTarget.url,
+            tutorialSteps: [
+              {
+                id: 'navigate-to-site',
+                command,
+                description: translateText(`Navigate to ${websiteTarget.name}`, detectedLanguage.code, {
+                  WEBSITE: websiteTarget.name
+                }),
+                coordinates: { x: 400, y: 300 },
+                action: translateText(`Open ${websiteTarget.url}`, detectedLanguage.code, {
+                  URL: websiteTarget.url
+                }),
+                completed: false
+              },
+              ...response.steps
+            ],
+            currentStep: 0,
+            isProcessing: false
+          });
+        } else {
+          updateAppState({
+            tutorialSteps: response.steps,
+            currentStep: 0,
+            isProcessing: false
+          });
         }
       }
     } catch (error) {
@@ -199,23 +201,8 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
       return { name: 'Gmail', url: 'https://gmail.com' };
     }
     
-    // Spanish patterns
-    if (lowerCommand.includes('correo') || lowerCommand.includes('enviar email') || lowerCommand.includes('escribir email')) {
-      return { name: 'Gmail', url: 'https://gmail.com' };
-    }
-    
-    // French patterns
-    if (lowerCommand.includes('envoyer email') || lowerCommand.includes('écrire email') || lowerCommand.includes('courrier')) {
-      return { name: 'Gmail', url: 'https://gmail.com' };
-    }
-    
-    // German patterns
-    if (lowerCommand.includes('email senden') || lowerCommand.includes('mail schreiben') || lowerCommand.includes('nachricht senden')) {
-      return { name: 'Gmail', url: 'https://gmail.com' };
-    }
-    
     // Universal patterns for other apps
-    if (lowerCommand.includes('google docs') || lowerCommand.includes('document') || lowerCommand.includes('दस्तावेज़') || lowerCommand.includes('documento')) {
+    if (lowerCommand.includes('google docs') || lowerCommand.includes('document') || lowerCommand.includes('दस्तावेज़')) {
       return { name: 'Google Docs', url: 'https://docs.google.com' };
     }
     if (lowerCommand.includes('youtube') || lowerCommand.includes('यूट्यूब')) {
@@ -223,9 +210,6 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
     }
     if (lowerCommand.includes('facebook') || lowerCommand.includes('फेसबुक')) {
       return { name: 'Facebook', url: 'https://facebook.com' };
-    }
-    if (lowerCommand.includes('twitter') || lowerCommand.includes('x.com') || lowerCommand.includes('ट्विटर')) {
-      return { name: 'Twitter/X', url: 'https://x.com' };
     }
     
     return null;
@@ -484,61 +468,6 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
                 >
                   ⏭ Skip
                 </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Automation Offer (Phase 2) */}
-        {showAutomationOffer && (
-          <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-lg p-4">
-            <div className="flex items-start space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <Lightbulb className="w-4 h-4 text-white" />
-              </div>
-              <div className="flex-1">
-                <h4 className="text-purple-400 text-sm font-medium mb-1">
-                  {translateText('Smart Assistance Available', appState.currentLanguage || 'en')}
-                </h4>
-                <p className="text-white/80 text-sm mb-3">
-                  {translateText('I can help automate some steps to make this easier for you.', appState.currentLanguage || 'en')}
-                  {estimatedTime > 0 && (
-                    <span className="text-blue-400 ml-1">
-                      ({translateText(`Estimated time: ${formatEstimatedTime(estimatedTime, appState.currentLanguage)}`, appState.currentLanguage || 'en')})
-                    </span>
-                  )}
-                </p>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => {
-                      setShowAutomationOffer(false);
-                      // Future: Implement automation
-                      const message = translateText('Automation feature coming soon! For now, I\'ll guide you step by step.', appState.currentLanguage || 'en');
-                      speakText(message, appState.currentLanguage === 'hi' ? 'hi-IN' : 'en-US');
-                    }}
-                    className="flex items-center space-x-1 px-3 py-2 bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 rounded text-sm font-medium transition-all duration-200"
-                  >
-                    <span>🤖</span>
-                    <span>{translateText('Help Me', appState.currentLanguage || 'en')}</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAutomationOffer(false);
-                      const message = translateText('Perfect! I\'ll guide you through each step carefully.', appState.currentLanguage || 'en');
-                      speakText(message, appState.currentLanguage === 'hi' ? 'hi-IN' : 'en-US');
-                    }}
-                    className="flex items-center space-x-1 px-3 py-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded text-sm font-medium transition-all duration-200"
-                  >
-                    <span>👨‍🏫</span>
-                    <span>{translateText('Teach Me', appState.currentLanguage || 'en')}</span>
-                  </button>
-                  <button
-                    onClick={() => setShowAutomationOffer(false)}
-                    className="px-3 py-2 bg-gray-500/20 text-gray-400 hover:bg-gray-500/30 rounded text-sm font-medium transition-all duration-200"
-                  >
-                    {translateText('Maybe Later', appState.currentLanguage || 'en')}
-                  </button>
-                </div>
               </div>
             </div>
           </div>

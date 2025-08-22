@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronLeft, X, Target, Globe, Volume2, SkipForward, RotateCcw } from 'lucide-react';
 import type { AppState } from '../App';
+import { translateText, supportedLanguages } from '../services/languageService';
 
 interface TutorialOverlayProps {
   appState: AppState;
@@ -54,9 +55,15 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ appState, upda
   const speakCurrentStep = () => {
     if (currentStep && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(
-        `Step ${appState.currentStep + 1}: ${currentStep.action}. ${currentStep.description}`
-      );
+      const stepText = translateText(`Step ${appState.currentStep + 1}: ${currentStep.action}. ${currentStep.description}`, appState.currentLanguage || 'en');
+      const utterance = new SpeechSynthesisUtterance(stepText);
+      
+      // Set voice language based on current language
+      const language = supportedLanguages[appState.currentLanguage || 'en'];
+      if (language) {
+        utterance.lang = language.speechCode;
+      }
+      
       utterance.rate = 0.9;
       utterance.pitch = 1;
       utterance.volume = 0.8;
@@ -125,7 +132,9 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ appState, upda
               </div>
               <div>
                 <h3 className="text-white font-semibold">{currentStep.action}</h3>
-                <p className="text-white/60 text-sm">Step {appState.currentStep + 1} of {appState.tutorialSteps.length}</p>
+                <p className="text-white/60 text-sm">
+                  {translateText(`Step ${appState.currentStep + 1} of ${appState.tutorialSteps.length}`, appState.currentLanguage || 'en')}
+                </p>
               </div>
             </div>
             
@@ -148,7 +157,7 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ appState, upda
               className="flex items-center space-x-2 px-4 py-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200"
             >
               <ChevronLeft className="w-4 h-4" />
-              <span>Previous</span>
+              <span>{translateText('Previous', appState.currentLanguage || 'en')}</span>
             </button>
 
             <div className="flex space-x-2">
@@ -171,7 +180,10 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ appState, upda
               className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200"
             >
               <span>
-                {appState.currentStep === appState.tutorialSteps.length - 1 ? 'Complete' : 'Next'}
+                {appState.currentStep === appState.tutorialSteps.length - 1 
+                  ? translateText('Complete', appState.currentLanguage || 'en')
+                  : translateText('Next', appState.currentLanguage || 'en')
+                }
               </span>
               <ChevronRight className="w-4 h-4" />
             </button>

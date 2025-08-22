@@ -1,6 +1,7 @@
 import React from 'react';
 import { Settings, RefreshCw, Trash2, Users } from 'lucide-react';
 import type { AppState } from '../App';
+import { translateText } from '../services/languageService';
 
 interface ControlPanelProps {
   appState: AppState;
@@ -39,23 +40,37 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ appState, updateAppS
         <div className="flex items-center space-x-6">
           <div className="flex items-center space-x-3">
             <Settings className="w-5 h-5 text-blue-400" />
-            <h2 className="text-lg font-semibold text-white">Control Panel</h2>
+            <h2 className="text-lg font-semibold text-white">
+              {translateText('Control Panel', appState.currentLanguage || 'en')}
+            </h2>
           </div>
           
           <div className="flex items-center space-x-4 text-sm text-white/60">
             <div className="flex items-center space-x-2">
               <div className={`w-2 h-2 rounded-full ${appState.isScreenSharing ? 'bg-green-500' : 'bg-gray-500'}`} />
-              <span>Screen: {appState.isScreenSharing ? 'Active' : 'Inactive'}</span>
+              <span>
+                {translateText('Screen', appState.currentLanguage || 'en')}: {appState.isScreenSharing 
+                  ? translateText('Screen Active', appState.currentLanguage || 'en')
+                  : translateText('Screen Inactive', appState.currentLanguage || 'en')
+                }
+              </span>
             </div>
             
             <div className="flex items-center space-x-2">
               <div className={`w-2 h-2 rounded-full ${appState.isListening ? 'bg-blue-500 animate-pulse' : 'bg-gray-500'}`} />
-              <span>Voice: {appState.isListening ? 'Listening' : 'Idle'}</span>
+              <span>
+                {translateText('Voice', appState.currentLanguage || 'en')}: {appState.isListening 
+                  ? translateText('Listening', appState.currentLanguage || 'en')
+                  : translateText('Idle', appState.currentLanguage || 'en')
+                }
+              </span>
             </div>
             
             <div className="flex items-center space-x-2">
               <Users className="w-4 h-4" />
-              <span>Steps: {appState.tutorialSteps.length}</span>
+              <span>
+                {translateText('Steps', appState.currentLanguage || 'en')}: {appState.tutorialSteps.length}
+              </span>
             </div>
           </div>
         </div>
@@ -67,7 +82,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ appState, updateAppS
               className="flex items-center space-x-2 px-4 py-2 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 rounded-lg font-medium transition-all duration-200"
             >
               <Trash2 className="w-4 h-4" />
-              <span>Clear Tutorial</span>
+              <span>{translateText('Clear Tutorial', appState.currentLanguage || 'en')}</span>
             </button>
           )}
           
@@ -76,7 +91,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ appState, updateAppS
             className="flex items-center space-x-2 px-4 py-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg font-medium transition-all duration-200"
           >
             <RefreshCw className="w-4 h-4" />
-            <span>Reset</span>
+            <span>{translateText('Reset', appState.currentLanguage || 'en')}</span>
           </button>
         </div>
       </div>
@@ -85,9 +100,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ appState, updateAppS
       {appState.tutorialSteps.length > 0 && (
         <div className="mt-6">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-white/80 text-sm font-medium">Tutorial Progress</span>
+            <span className="text-white/80 text-sm font-medium">
+              {translateText('Tutorial Progress', appState.currentLanguage || 'en')}
+            </span>
             <span className="text-white/60 text-sm">
-              Step {appState.currentStep + 1} of {appState.tutorialSteps.length}
+              {translateText(`Step ${appState.currentStep + 1} of ${appState.tutorialSteps.length}`, appState.currentLanguage || 'en')}
             </span>
           </div>
           <div className="w-full bg-white/10 rounded-full h-2">

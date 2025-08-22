@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ScreenShare } from './components/ScreenShare';
+import { EnhancedScreenShare } from './components/EnhancedScreenShare';
 import { VoiceCommand } from './components/VoiceCommand';
 import { ControlPanel } from './components/ControlPanel';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { StatusBar } from './components/StatusBar';
 import { Monitor, Brain, Circle } from 'lucide-react';
+import { translateText } from './services/languageService';
 
 export interface TutorialStep {
   id: string;
@@ -77,21 +78,25 @@ function App() {
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 max-w-md w-full border border-white/20">
           <div className="text-center mb-6">
             <Brain className="w-12 h-12 text-blue-400 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-white mb-2">AI Screen Tutorial</h1>
-            <p className="text-white/70">Enter your Gemini API key to get started</p>
+            <h1 className="text-2xl font-bold text-white mb-2">
+              {translateText('AI Screen Tutorial', appState.currentLanguage || 'en')}
+            </h1>
+            <p className="text-white/70">
+              {translateText('Enter your Gemini API key to get started', appState.currentLanguage || 'en')}
+            </p>
           </div>
           
           <div className="space-y-4">
             <div>
               <label className="block text-white/80 text-sm font-medium mb-2">
-                Gemini API Key
+                {translateText('Gemini API Key', appState.currentLanguage || 'en')}
               </label>
               <input
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter your API key..."
+                placeholder={translateText('Enter your API key...', appState.currentLanguage || 'en')}
               />
             </div>
             
@@ -100,11 +105,11 @@ function App() {
               disabled={!apiKey}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-[1.02]"
             >
-              Continue
+              {translateText('Continue', appState.currentLanguage || 'en')}
             </button>
             
             <p className="text-white/60 text-sm text-center">
-              Get your API key from{' '}
+              {translateText('Get your API key from', appState.currentLanguage || 'en')}{' '}
               <a
                 href="https://makersuite.google.com/app/apikey"
                 target="_blank"
@@ -131,8 +136,12 @@ function App() {
                 <Monitor className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-white">AI Screen Tutorial</h1>
-                <p className="text-white/60 text-sm">Powered by Gemini 2.0 Flash</p>
+                <h1 className="text-xl font-bold text-white">
+                  {translateText('AI Screen Tutorial', appState.currentLanguage || 'en')}
+                </h1>
+                <p className="text-white/60 text-sm">
+                  {translateText('Powered by Gemini 2.0 Flash', appState.currentLanguage || 'en')}
+                </p>
               </div>
             </div>
             
@@ -152,25 +161,17 @@ function App() {
 
         {/* Screen Share and Voice Control */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Screen Share Section */}
+          {/* Enhanced Screen Share Section */}
           <div className="lg:col-span-2">
-            <ScreenShare 
+            <EnhancedScreenShare 
               onStreamUpdate={(stream) => {
-                console.log('Screen share stream update:', stream);
+                console.log('Enhanced screen share stream update:', stream);
                 updateAppState({ screenStream: stream, isScreenSharing: !!stream });
               }}
               onDetectedApp={(appName) => updateAppState({ detectedApplication: appName })}
-              currentStep={
-                appState.tutorialSteps.length > 0 && appState.currentStep < appState.tutorialSteps.length
-                  ? appState.tutorialSteps[appState.currentStep]?.description
-                  : undefined
-              }
-              tutorialActive={appState.tutorialSteps.length > 0}
-              currentCommand={appState.currentCommand}
               currentLanguage={appState.currentLanguage}
-              onPhantomComplete={() => {
-                console.log('Phantom AI tutorial completed');
-              }}
+              elderlyMode={true}
+              assistanceLevel="standard"
             />
           </div>
 
@@ -185,7 +186,9 @@ function App() {
             {/* Tutorial Steps */}
             {appState.tutorialSteps.length > 0 && (
               <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
-                <h3 className="text-lg font-semibold text-white mb-4">Tutorial Steps</h3>
+                <h3 className="text-lg font-semibold text-white mb-4">
+                  {translateText('Tutorial Steps', appState.currentLanguage || 'en')}
+                </h3>
                 <div className="space-y-3">
                   {appState.tutorialSteps.map((step, index) => (
                     <div 
