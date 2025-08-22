@@ -11,8 +11,29 @@ interface GeminiResponse {
   steps: TutorialStep[];
 }
 
-export async function generateStepGuidance(action: string, description: string, apiKey: string): Promise<string> {
+function getLanguageInstructions(language: string): string {
+  const languageMap: Record<string, string> = {
+    'hi': 'Please respond in Hindi (हिंदी). Use clear, simple Hindi words.',
+    'es': 'Please respond in Spanish (Español). Use clear, simple Spanish words.',
+    'fr': 'Please respond in French (Français). Use clear, simple French words.',
+    'de': 'Please respond in German (Deutsch). Use clear, simple German words.',
+    'ar': 'Please respond in Arabic (العربية). Use clear, simple Arabic words.',
+    'zh': 'Please respond in Chinese (中文). Use clear, simple Chinese characters.',
+    'ja': 'Please respond in Japanese (日本語). Use clear, simple Japanese words.',
+    'ko': 'Please respond in Korean (한국어). Use clear, simple Korean words.',
+    'pt': 'Please respond in Portuguese (Português). Use clear, simple Portuguese words.',
+    'ru': 'Please respond in Russian (Русский). Use clear, simple Russian words.',
+    'it': 'Please respond in Italian (Italiano). Use clear, simple Italian words.',
+    'en': 'Please respond in English. Use clear, simple English words.'
+  };
+  
+  return languageMap[language] || languageMap['en'];
+}
+
+export async function generateStepGuidance(action: string, description: string, apiKey: string, language: string = 'en'): Promise<string> {
   try {
+    const languageInstructions = getLanguageInstructions(language);
+    
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
@@ -21,15 +42,17 @@ export async function generateStepGuidance(action: string, description: string, 
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: `Generate a clear, friendly voice instruction for the following step:
+            text: `${languageInstructions}
+
+Generate a clear, friendly voice instruction for the following step:
             
-            Action: ${action}
-            Description: ${description}
+Action: ${action}
+Description: ${description}
             
-            Provide a single sentence that guides the user on what to do next. Make it conversational and encouraging.
-            For example: "Now, click on the Compose button in the top left corner to start writing your email."
+Provide a single sentence that guides the user on what to do next. Make it conversational and encouraging.
+For example: "Now, click on the Compose button in the top left corner to start writing your email."
             
-            Keep the instruction under 20 words and make it actionable.`
+Keep the instruction under 20 words and make it actionable.`
           }]
         }],
         generationConfig: {
@@ -53,8 +76,10 @@ export async function generateStepGuidance(action: string, description: string, 
   }
 }
 
-export async function processVoiceCommand(command: string, apiKey: string): Promise<GeminiResponse | null> {
+export async function processVoiceCommand(command: string, apiKey: string, language: string = 'en'): Promise<GeminiResponse | null> {
   try {
+    const languageInstructions = getLanguageInstructions(language);
+    
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
@@ -63,28 +88,30 @@ export async function processVoiceCommand(command: string, apiKey: string): Prom
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: `Analyze this voice command and create a step-by-step tutorial: "${command}"
+            text: `${languageInstructions}
+
+Analyze this voice command and create a step-by-step tutorial: "${command}"
             
-            Please respond with a JSON object containing tutorial steps in this exact format:
-            {
-              "steps": [
-                {
-                  "id": "step-1",
-                  "command": "${command}",
-                  "description": "Detailed description of what to do",
-                  "coordinates": {"x": 400, "y": 300},
-                  "action": "Click on Gallery app",
-                  "completed": false
-                }
-              ]
-            }
+Please respond with a JSON object containing tutorial steps in this exact format:
+{
+  "steps": [
+    {
+      "id": "step-1",
+      "command": "${command}",
+      "description": "Detailed description of what to do (in the requested language)",
+      "coordinates": {"x": 400, "y": 300},
+      "action": "Click on Gallery app (in the requested language)",
+      "completed": false
+    }
+  ]
+}
             
-            Create 3-5 logical steps that would help someone complete the requested task. 
-            Generate realistic screen coordinates (assume 1920x1080 screen).
-            Make the descriptions clear and actionable.
-            Focus on common UI patterns and locations.
+Create 3-5 logical steps that would help someone complete the requested task. 
+Generate realistic screen coordinates (assume 1920x1080 screen).
+Make the descriptions clear and actionable.
+Focus on common UI patterns and locations.
             
-            Only respond with valid JSON, no additional text.`
+Only respond with valid JSON, no additional text.`
           }]
         }],
         generationConfig: {

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, MessageSquare, Loader } from 'lucide-react';
 import type { AppState } from '../App';
 import { processVoiceCommand, generateStepGuidance } from '../services/geminiService';
+import { translateText, getLanguageFromText, supportedLanguages } from '../services/languageService';
 
 interface VoiceCommandProps {
   appState: AppState;
@@ -35,7 +36,8 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = appState.currentLanguage ? 
+      supportedLanguages[appState.currentLanguage]?.speechCode || 'en-US' : 'en-US';
 
     recognition.onstart = () => {
       updateAppState({ isListening: true });
@@ -77,7 +79,7 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
         recognitionRef.current.stop();
       }
     };
-  }, []);
+  }, [appState.currentLanguage]); // Add currentLanguage as dependency
 
   // Voice guidance effect
   useEffect(() => {
@@ -92,12 +94,22 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
     console.log('App state - isScreenSharing:', appState.isScreenSharing);
     console.log('App state - screenStream:', appState.screenStream);
     
+    // Detect language from the command
+    const detectedLanguage = getLanguageFromText(command);
+    console.log('Detected language:', detectedLanguage);
+    
+    // Update the app state with detected language
+    updateAppState({ 
+      currentLanguage: detectedLanguage.code,
+      detectedLanguageCode: detectedLanguage.code 
+    });
+    
     // Temporary override for testing - remove this later
     const hasScreenShare = appState.isScreenSharing || appState.screenStream || true; // Force true for testing
     
     if (!hasScreenShare) {
-      const message = 'Please start screen sharing first to use voice commands.';
-      speakText(message);
+      const message = translateText('Please start screen sharing first to use voice commands.', detectedLanguage.code);
+      speakText(message, detectedLanguage.speechCode);
       setVoiceGuidance(message);
       return;
     }
@@ -109,7 +121,7 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
 
     try {
       // Process the command and determine if we need to navigate to a specific website
-      const response = await processVoiceCommand(command, apiKey);
+      const response = await processVoiceCommand(command, apiKey, detectedLanguage.code);
       
       if (response) {
         // Check if this is a web-based task (like Gmail)
@@ -117,7 +129,12 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
         
         if (websiteTarget) {
           // Provide guidance to navigate to the website first
-          speakText(`To ${command}, let's first navigate to ${websiteTarget.name}. Please open your browser and go to ${websiteTarget.url}`);
+          const navigationMessage = translateText(`To ${command}, let's first navigate to ${websiteTarget.name}. Please open your browser and go to ${websiteTarget.url}`, detectedLanguage.code, {
+            TASK: command,
+            WEBSITE: websiteTarget.name,
+            URL: websiteTarget.url
+          });
+          speakText(navigationMessage, detectedLanguage.speechCode);
           
           updateAppState({
             currentWebsite: websiteTarget.url,
@@ -125,9 +142,13 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
               {
                 id: 'navigate-to-site',
                 command,
-                description: `Navigate to ${websiteTarget.name}`,
+                description: translateText(`Navigate to ${websiteTarget.name}`, detectedLanguage.code, {
+                  WEBSITE: websiteTarget.name
+                }),
                 coordinates: { x: 400, y: 300 },
-                action: `Open ${websiteTarget.url}`,
+                action: translateText(`Open ${websiteTarget.url}`, detectedLanguage.code, {
+                  URL: websiteTarget.url
+                }),
                 completed: false
               },
               ...response.steps
@@ -145,7 +166,8 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
       }
     } catch (error) {
       console.error('Error processing voice command:', error);
-      speakText('Sorry, I encountered an error processing your command. Please try again.');
+      const errorMessage = translateText('Sorry, I encountered an error processing your command. Please try again.', detectedLanguage.code);
+      speakText(errorMessage, detectedLanguage.speechCode);
       updateAppState({ isProcessing: false });
     }
   };
@@ -153,19 +175,42 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
   const detectWebsiteTarget = (command: string) => {
     const lowerCommand = command.toLowerCase();
     
+    // English patterns
     if (lowerCommand.includes('gmail') || lowerCommand.includes('send email') || lowerCommand.includes('compose email')) {
       return { name: 'Gmail', url: 'https://gmail.com' };
     }
-    if (lowerCommand.includes('google docs') || lowerCommand.includes('document')) {
+    
+    // Hindi patterns
+    if (lowerCommand.includes('जीमेल') || lowerCommand.includes('ईमेल भेजना') || lowerCommand.includes('मेल लिखना')) {
+      return { name: 'Gmail', url: 'https://gmail.com' };
+    }
+    
+    // Spanish patterns
+    if (lowerCommand.includes('correo') || lowerCommand.includes('enviar email') || lowerCommand.includes('escribir email')) {
+      return { name: 'Gmail', url: 'https://gmail.com' };
+    }
+    
+    // French patterns
+    if (lowerCommand.includes('envoyer email') || lowerCommand.includes('écrire email') || lowerCommand.includes('courrier')) {
+      return { name: 'Gmail', url: 'https://gmail.com' };
+    }
+    
+    // German patterns
+    if (lowerCommand.includes('email senden') || lowerCommand.includes('mail schreiben') || lowerCommand.includes('nachricht senden')) {
+      return { name: 'Gmail', url: 'https://gmail.com' };
+    }
+    
+    // Universal patterns for other apps
+    if (lowerCommand.includes('google docs') || lowerCommand.includes('document') || lowerCommand.includes('दस्तावेज़') || lowerCommand.includes('documento')) {
       return { name: 'Google Docs', url: 'https://docs.google.com' };
     }
-    if (lowerCommand.includes('youtube')) {
+    if (lowerCommand.includes('youtube') || lowerCommand.includes('यूट्यूब')) {
       return { name: 'YouTube', url: 'https://youtube.com' };
     }
-    if (lowerCommand.includes('facebook')) {
+    if (lowerCommand.includes('facebook') || lowerCommand.includes('फेसबुक')) {
       return { name: 'Facebook', url: 'https://facebook.com' };
     }
-    if (lowerCommand.includes('twitter') || lowerCommand.includes('x.com')) {
+    if (lowerCommand.includes('twitter') || lowerCommand.includes('x.com') || lowerCommand.includes('ट्विटर')) {
       return { name: 'Twitter/X', url: 'https://x.com' };
     }
     
@@ -173,12 +218,14 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
   };
 
   const provideVoiceGuidance = async (action: string, description: string) => {
-    const guidance = await generateStepGuidance(action, description, apiKey);
-    setVoiceGuidance(guidance);
-    speakText(guidance);
+    const currentLang = appState.currentLanguage || 'en';
+    const guidance = await generateStepGuidance(action, description, apiKey, currentLang);
+    const translatedGuidance = translateText(guidance, currentLang);
+    setVoiceGuidance(translatedGuidance);
+    speakText(translatedGuidance);
   };
 
-  const speakText = (text: string) => {
+  const speakText = (text: string, languageCode?: string) => {
     if ('speechSynthesis' in window) {
       // Cancel any ongoing speech
       window.speechSynthesis.cancel();
@@ -187,6 +234,16 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
       utterance.rate = 0.9;
       utterance.pitch = 1;
       utterance.volume = 0.8;
+      
+      // Set language if provided
+      if (languageCode) {
+        utterance.lang = languageCode;
+      } else if (appState.currentLanguage) {
+        const langSupport = supportedLanguages[appState.currentLanguage];
+        if (langSupport) {
+          utterance.lang = langSupport.speechCode;
+        }
+      }
       
       speechSynthesisRef.current = utterance;
       window.speechSynthesis.speak(utterance);
@@ -197,7 +254,8 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
     if (appState.currentStep < appState.tutorialSteps.length - 1) {
       updateAppState({ currentStep: appState.currentStep + 1 });
     } else {
-      speakText('Congratulations! You have completed all the steps.');
+      const congratsMessage = translateText('Congratulations! You have completed all the steps.', appState.currentLanguage || 'en');
+      speakText(congratsMessage);
       updateAppState({ tutorialSteps: [], currentStep: 0 });
     }
   };
@@ -300,6 +358,32 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
           </div>
         )}
 
+        {/* Language Selector */}
+        <div className="bg-white/5 rounded-lg p-4 border border-white/10 mb-4">
+          <h4 className="text-white/80 font-medium mb-3">🌍 Language / भाषा / Idioma</h4>
+          <div className="grid grid-cols-2 gap-2">
+            {Object.entries(supportedLanguages).slice(0, 6).map(([code, lang]) => (
+              <button
+                key={code}
+                onClick={() => {
+                  updateAppState({ currentLanguage: code });
+                  // Update speech recognition language
+                  if (recognitionRef.current) {
+                    recognitionRef.current.lang = lang.speechCode;
+                  }
+                }}
+                className={`text-xs py-2 px-3 rounded transition-all duration-200 ${
+                  appState.currentLanguage === code
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                {lang.nativeName}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Example Commands */}
         <div className="bg-white/5 rounded-lg p-4 border border-white/10">
           <h4 className="text-white/80 font-medium mb-3">Try these commands:</h4>
@@ -319,21 +403,26 @@ export const VoiceCommand: React.FC<VoiceCommandProps> = ({ appState, updateAppS
           
           <div className="space-y-2">
             {[
-              "How to compose an email in Gmail",
-              "Show me how to create a Google document",
-              "How to delete a photo in gallery",
-              "Help me send a message on Facebook",
-              "How to create a new folder"
-            ].map((command, index) => (
-              <button
-                key={index}
-                onClick={() => handleVoiceCommand(command)}
-                disabled={appState.isProcessing || !appState.isScreenSharing || !appState.screenStream}
-                className="block w-full text-left text-white/60 hover:text-white text-sm p-2 rounded hover:bg-white/5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                "{command}"
-              </button>
-            ))}
+              { en: "How to compose an email in Gmail", hi: "Gmail में ईमेल कैसे लिखें", es: "Cómo redactar un correo en Gmail" },
+              { en: "Show me how to create a Google document", hi: "Google दस्तावेज़ कैसे बनाएं", es: "Cómo crear un documento de Google" },
+              { en: "How to delete a photo in gallery", hi: "गैलरी में फोटो कैसे डिलीट करें", es: "Cómo eliminar una foto de la galería" },
+              { en: "Help me send a message on Facebook", hi: "Facebook पर संदेश कैसे भेजें", es: "Cómo enviar un mensaje en Facebook" },
+              { en: "How to create a new folder", hi: "नया फोल्डर कैसे बनाएं", es: "Cómo crear una nueva carpeta" }
+            ].map((commandSet, index) => {
+              const currentLang = appState.currentLanguage || 'en';
+              const command = commandSet[currentLang as keyof typeof commandSet] || commandSet.en;
+              
+              return (
+                <button
+                  key={index}
+                  onClick={() => handleVoiceCommand(command)}
+                  disabled={appState.isProcessing || !appState.isScreenSharing || !appState.screenStream}
+                  className="block w-full text-left text-white/60 hover:text-white text-sm p-2 rounded hover:bg-white/5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  "{command}"
+                </button>
+              );
+            })}
           </div>
         </div>
 

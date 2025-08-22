@@ -8,6 +8,7 @@ interface ScreenShareProps {
   currentStep?: string;
   tutorialActive?: boolean;
   currentCommand?: string;
+  currentLanguage?: string;
   onPhantomComplete?: () => void;
 }
 
@@ -17,6 +18,7 @@ export const ScreenShare: React.FC<ScreenShareProps> = ({
   currentStep,
   tutorialActive,
   currentCommand,
+  currentLanguage,
   onPhantomComplete
 }) => {
   const [isSharing, setIsSharing] = useState(false);
@@ -278,6 +280,7 @@ export const ScreenShare: React.FC<ScreenShareProps> = ({
         isActive={showPhantom && isSharing}
         currentApp={detectedApp}
         command={currentCommand || ''}
+        currentLanguage={currentLanguage}
         onStepComplete={(stepId) => {
           console.log('Phantom step completed:', stepId);
         }}

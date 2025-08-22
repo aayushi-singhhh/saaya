@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ScreenShare } from './components/ScreenShare';
 import { VoiceCommand } from './components/VoiceCommand';
 import { ControlPanel } from './components/ControlPanel';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { StatusBar } from './components/StatusBar';
-import { Monitor, Mic, Brain, Circle } from 'lucide-react';
+import { Monitor, Brain, Circle } from 'lucide-react';
 
 export interface TutorialStep {
   id: string;
@@ -28,6 +28,8 @@ export interface AppState {
   contentMonitoringInterval?: number;
   currentWebsite?: string;
   detectedApplication?: string;
+  currentLanguage?: string;
+  detectedLanguageCode?: string;
 }
 
 function App() {
@@ -39,6 +41,8 @@ function App() {
     tutorialSteps: [],
     currentStep: 0,
     screenStream: null,
+    currentLanguage: localStorage.getItem('preferred-language') || 'en',
+    detectedLanguageCode: 'en'
   });
 
   const [apiKey, setApiKey] = useState(localStorage.getItem('gemini-api-key') || '');
@@ -50,6 +54,13 @@ function App() {
       setShowApiKeyInput(false);
     }
   }, [apiKey]);
+
+  // Persist language preference
+  useEffect(() => {
+    if (appState.currentLanguage) {
+      localStorage.setItem('preferred-language', appState.currentLanguage);
+    }
+  }, [appState.currentLanguage]);
 
   const updateAppState = (updates: Partial<AppState>) => {
     console.log('App: Updating state with:', updates);
@@ -125,7 +136,7 @@ function App() {
               </div>
             </div>
             
-            <StatusBar appState={appState} />
+            <StatusBar appState={appState} updateAppState={updateAppState} />
           </div>
         </div>
       </header>
@@ -156,6 +167,7 @@ function App() {
               }
               tutorialActive={appState.tutorialSteps.length > 0}
               currentCommand={appState.currentCommand}
+              currentLanguage={appState.currentLanguage}
               onPhantomComplete={() => {
                 console.log('Phantom AI tutorial completed');
               }}
