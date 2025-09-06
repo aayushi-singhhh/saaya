@@ -2,15 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Monitor, Square, AlertCircle, Play, StopCircle, Target, Mic, MicOff } from 'lucide-react';
 import { RealTimeOverlay, useScreenAnnotations } from './RealTimeOverlay';
 import { translateText } from '../services/languageService';
-import UniversalScreenCapture, { elderlyPresets } from '../services/universalScreenCapture';
-import type { ScreenCaptureOptions, ScreenAnalysis } from '../services/universalScreenCapture';
+import UniversalScreenCapture from '../services/universalScreenCapture';
+import type { ScreenAnalysis } from '../services/universalScreenCapture';
 
 interface EnhancedScreenShareProps {
   onStreamUpdate?: (stream: MediaStream | null) => void;
-  onDetectedApp?: (appName: string) => void;
   currentLanguage?: string;
   elderlyMode?: boolean;
-  assistanceLevel?: 'minimal' | 'standard' | 'maximum';
 }
 
 export const EnhancedScreenShare: React.FC<EnhancedScreenShareProps> = ({
@@ -41,67 +39,75 @@ export const EnhancedScreenShare: React.FC<EnhancedScreenShareProps> = ({
 
   // Initialize screen capture service
   useEffect(() => {
-    const initializeScreenCapture = () => {
-      const capture = new UniversalScreenCapture();
-      
-      // Listen for screen analysis events
-      capture.on('screenAnalyzed', (analysis: ScreenAnalysis) => {
-        setLastAnalysis(analysis);
-        console.log('Screen analyzed:', analysis);
-      });
+    const capture = new UniversalScreenCapture();
+    
+    // Listen for screen analysis events
+    capture.on('screenAnalyzed', (analysis: ScreenAnalysis) => {
+      setLastAnalysis(analysis);
+      console.log('Screen analyzed:', analysis);
+    });
 
-      // Listen for capture events
-      capture.on('captureStarted', ({ stream }) => {
-        console.log('Universal capture started with stream:', stream);
-      });
+    // Listen for capture events
+    capture.on('captureStarted', ({ stream }) => {
+      console.log('Universal capture started with stream:', stream);
+    });
 
-      capture.on('error', ({ error }) => {
-        console.error('Universal capture error:', error);
-        setError(error.message || 'Screen capture failed');
-      });
+    capture.on('error', ({ error }) => {
+      console.error('Universal capture error:', error);
+      setError(error.message || 'Screen capture failed');
+    });
 
-      setScreenCapture(capture);
-    };
-
-    initializeScreenCapture();
+    setScreenCapture(capture);
 
     return () => {
-      if (screenCapture) {
-        screenCapture.stopCapture();
-      }
+      capture.stopCapture();
     };
   }, []);
 
-  // Start screen sharing with UniversalScreenCapture
+  // Simplified and reliable screen sharing function
   const startScreenSharing = async () => {
     try {
       setError(null);
-      console.log('Starting enhanced screen share...');
+      console.log('🚀 Starting screen sharing...');
       
-      if (!screenCapture) {
-        throw new Error('Screen capture service not initialized');
-      }
-
-      // Configure options for elderly users
-      const options: ScreenCaptureOptions = {
-        ...elderlyPresets[currentLanguage === 'hi' ? 'hindiSpeaker' : 'standard'],
-        elderlyMode,
-        language: currentLanguage as 'hi' | 'en'
-      };
-
-      // Start universal screen capture
-      const mediaStream = await screenCapture.startCapture(options);
-      console.log('Got enhanced media stream:', mediaStream);
+      // Simple screen/tab sharing request
+      const mediaStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false
+      });
       
-      // Set the stream
+      console.log('✅ Screen sharing stream obtained:', mediaStream);
+      
+      // Set state immediately
       setStream(mediaStream);
       setIsSharing(true);
 
-      // Set video element immediately
+      // Simple video setup
       if (videoRef.current) {
+        console.log('🎬 Setting up video element...');
         videoRef.current.srcObject = mediaStream;
-        videoRef.current.play().catch(e => console.warn('Video play failed:', e));
-        console.log('Set video source');
+        videoRef.current.muted = true;
+        videoRef.current.autoplay = true;
+        videoRef.current.playsInline = true;
+        
+        // Simple play attempt
+        try {
+          await videoRef.current.play();
+          console.log('✅ Video playing successfully');
+        } catch (playError) {
+          console.warn('⚠️ Initial play failed, will retry...', playError);
+          // Retry after short delay
+          setTimeout(async () => {
+            if (videoRef.current) {
+              try {
+                await videoRef.current.play();
+                console.log('✅ Retry play successful');
+              } catch (e) {
+                console.error('❌ Retry play failed:', e);
+              }
+            }
+          }, 500);
+        }
       }
 
       // Call parent callback
@@ -110,16 +116,21 @@ export const EnhancedScreenShare: React.FC<EnhancedScreenShareProps> = ({
       }
 
       // Handle stream end
-      mediaStream.getVideoTracks()[0].addEventListener('ended', () => {
-        console.log('Stream ended');
-        stopScreenSharing();
-      });
+      const videoTrack = mediaStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.addEventListener('ended', () => {
+          console.log('📱 Screen sharing ended');
+          stopScreenSharing();
+        });
+      }
 
-      console.log('Enhanced screen sharing started successfully');
+      console.log('🎉 Screen sharing setup complete!');
 
     } catch (err) {
-      console.error('Enhanced screen sharing failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to start enhanced screen sharing');
+      console.error('❌ Screen sharing failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to start screen sharing');
+      setIsSharing(false);
+      setStream(null);
     }
   };
 
@@ -258,6 +269,38 @@ export const EnhancedScreenShare: React.FC<EnhancedScreenShareProps> = ({
     }
   };
 
+  // Ensure video plays when stream changes
+  useEffect(() => {
+    if (stream && videoRef.current && isSharing) {
+      console.log('🎬 Stream changed, setting up video...');
+      
+      const video = videoRef.current;
+      video.srcObject = stream;
+      video.muted = true;
+      video.autoplay = true;
+      video.playsInline = true;
+      
+      const playVideo = async () => {
+        try {
+          await video.play();
+          console.log('✅ Video playing after stream change');
+        } catch (error) {
+          console.warn('⚠️ Video play failed, retrying...', error);
+          setTimeout(async () => {
+            try {
+              await video.play();
+              console.log('✅ Video play retry successful');
+            } catch (retryError) {
+              console.error('❌ Video play retry failed:', retryError);
+            }
+          }, 500);
+        }
+      };
+      
+      playVideo();
+    }
+  }, [stream, isSharing]);
+
   return (
     <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 overflow-hidden">
       {/* Header */}
@@ -315,25 +358,119 @@ export const EnhancedScreenShare: React.FC<EnhancedScreenShareProps> = ({
       </div>
 
       {/* Screen Share Area */}
-      <div className="relative aspect-video bg-gray-900/50 min-h-[400px]">
-        {/* Video Preview */}
-        {isSharing && (
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            className="w-full h-full object-contain bg-black rounded-lg"
-            onLoadedMetadata={() => {
-              console.log('Video metadata loaded');
-              if (videoRef.current) {
-                console.log('Video dimensions:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
-              }
-            }}
-            onPlay={() => console.log('Video started playing')}
-            onError={(e) => console.error('Video error:', e)}
-            onCanPlay={() => console.log('Video can play')}
-          />
+      <div className="relative aspect-video bg-gray-900/50 min-h-[400px] rounded-lg overflow-hidden">
+        {/* Video Preview - Shows shared tab content */}
+        {isSharing && stream && (
+          <div className="w-full h-full relative bg-black rounded-lg overflow-hidden">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-full h-full object-contain bg-black"
+              style={{ 
+                display: 'block',
+                minHeight: '400px'
+              }}
+              onLoadedMetadata={() => {
+                console.log('✅ Video metadata loaded');
+                if (videoRef.current) {
+                  console.log('📐 Video dimensions:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
+                }
+              }}
+              onCanPlay={() => {
+                console.log('✅ Video can play');
+                if (videoRef.current && videoRef.current.paused) {
+                  videoRef.current.play().catch(e => console.error('Auto-play failed:', e));
+                }
+              }}
+              onPlay={() => {
+                console.log('▶️ Video now playing');
+              }}
+              onError={(e) => {
+                console.error('❌ Video error:', e);
+                setError('Video playback error');
+              }}
+            />
+            
+            {/* IMPROVED FORCE PLAY BUTTON */}
+            <button
+              onClick={async () => {
+                console.log('🔥 FORCE PLAY CLICKED!');
+                if (videoRef.current && stream) {
+                  console.log('🎮 Current video state:', {
+                    srcObject: !!videoRef.current.srcObject,
+                    readyState: videoRef.current.readyState,
+                    paused: videoRef.current.paused,
+                    dimensions: `${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`
+                  });
+                  
+                  // Re-assign stream and force properties
+                  videoRef.current.srcObject = stream;
+                  videoRef.current.muted = true;
+                  videoRef.current.autoplay = true;
+                  videoRef.current.playsInline = true;
+                  
+                  try {
+                    await videoRef.current.play();
+                    console.log('🎉 FORCE PLAY SUCCESS!');
+                  } catch (e) {
+                    console.error('❌ FORCE PLAY FAILED:', e);
+                    // Try one more time after delay
+                    setTimeout(async () => {
+                      if (videoRef.current) {
+                        try {
+                          await videoRef.current.play();
+                          console.log('🎉 DELAYED FORCE PLAY SUCCESS!');
+                        } catch (finalError) {
+                          console.error('❌ FINAL FORCE PLAY FAILED:', finalError);
+                        }
+                      }
+                    }, 1000);
+                  }
+                } else {
+                  console.error('❌ No video element or stream available');
+                  setError('No video element or stream available for force play');
+                }
+              }}
+              className="absolute top-4 left-4 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-700 border-2 border-red-400 animate-pulse"
+            >
+              🔥 FORCE PLAY VIDEO 🔥
+            </button>
+            
+            {/* Video status overlay */}
+            <div className="absolute bottom-2 right-2 bg-green-900/90 text-green-200 px-2 py-1 rounded text-xs">
+              Live Tab: {videoRef.current?.videoWidth || 0}×{videoRef.current?.videoHeight || 0}
+            </div>
+            
+            {/* Tab sharing indicator */}
+            <div className="absolute top-2 right-2 bg-blue-900/90 text-blue-200 px-3 py-1 rounded-full text-xs flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+              Tab Content Live
+            </div>
+            
+            {/* Debug info overlay */}
+            <div className="absolute bottom-4 left-4 bg-purple-900/90 text-purple-200 px-3 py-2 rounded-lg text-sm max-w-sm">
+              <div>Ready: {videoRef.current?.readyState || 0}/4</div>
+              <div>Paused: {videoRef.current?.paused ? 'Yes' : 'No'}</div>
+              <div>Dimensions: {videoRef.current?.videoWidth || 0}×{videoRef.current?.videoHeight || 0}</div>
+              <div>Stream: {stream ? 'Active' : 'None'}</div>
+              <div>Tracks: {stream?.getVideoTracks().length || 0}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Loading state when sharing but no video yet */}
+        {isSharing && !stream && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 bg-gray-900/80">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-lg font-medium">
+              {translateText('Preparing screen share...', currentLanguage)}
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              {translateText('Please select a screen or window to share', currentLanguage)}
+            </p>
+          </div>
         )}
 
         {/* Enhanced debug info */}
@@ -342,7 +479,8 @@ export const EnhancedScreenShare: React.FC<EnhancedScreenShareProps> = ({
             <div className="space-y-1">
               <div>Sharing: <span className="text-green-400">{isSharing ? 'Active' : 'Inactive'}</span></div>
               <div>Stream: <span className="text-blue-400">{stream ? 'Available' : 'None'}</span></div>
-              <div>Video: <span className="text-purple-400">{videoRef.current?.srcObject ? 'Set' : 'Not Set'}</span></div>
+              <div>Video Element: <span className="text-purple-400">{videoRef.current?.srcObject ? 'Set' : 'Not Set'}</span></div>
+              <div>Video Ready: <span className="text-cyan-400">{videoRef.current?.readyState || 0}/4</span></div>
               {videoRef.current?.videoWidth && (
                 <div>Resolution: <span className="text-yellow-400">{videoRef.current.videoWidth}×{videoRef.current.videoHeight}</span></div>
               )}
@@ -361,7 +499,7 @@ export const EnhancedScreenShare: React.FC<EnhancedScreenShareProps> = ({
               {translateText('Enhanced Screen Share', currentLanguage)}
             </h3>
             <p className="text-lg mb-8 text-center max-w-lg leading-relaxed">
-              {translateText('Share your screen to receive real-time visual guidance and voice instructions in Hindi or English', currentLanguage)}
+              {translateText('Share your screen or browser tab to receive real-time visual guidance and voice instructions in Hindi or English', currentLanguage)}
             </p>
             <button
               onClick={startScreenSharing}
@@ -370,6 +508,10 @@ export const EnhancedScreenShare: React.FC<EnhancedScreenShareProps> = ({
               <Play className="w-6 h-6" />
               {translateText('Start Enhanced Screen Sharing', currentLanguage)}
             </button>
+            
+ 
+            
+ 
             
             {elderlyMode && (
               <div className="mt-6 text-center">
