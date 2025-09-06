@@ -20,7 +20,7 @@ Saaya is an AI-powered digital companion designed specifically for elderly users
 - **🎯 AI-Powered Guidance**: Context-aware step-by-step instructions using Google Gemini AI
 - **👁️ Visual Overlays**: Real-time arrows, circles, highlights, and tooltips on shared content
 - **🎵 Text-to-Speech**: Natural voice feedback in both Hindi and English
-- **🎤 Speech-to-Text**: Voice command recognition and intent mapping
+- **🎤 Speech-to-Text**: Voaice command recognition and intent mapping
 - **🤖 Intent Recognition**: Maps common elderly tasks to actionable guidance
 
 ### 🧩 Technical Highlights
